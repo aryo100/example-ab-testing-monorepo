@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nest-ab-testing-app
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ab_testing?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BULL_REDIS_HOST=redis
+      - BULL_REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ab-testing-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: nest-ab-testing-worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ab_testing?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BULL_REDIS_HOST=redis
+      - BULL_REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ab-testing-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nest-ab-testing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ab_testing
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ab-testing-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: nest-ab-testing-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+    networks:
+      - ab-testing-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: nest-ab-testing-redis-commander
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+    networks:
+      - ab-testing-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  ab-testing-network:
+    driver: bridge
+
+
