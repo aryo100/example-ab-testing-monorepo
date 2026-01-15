@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useDeleteFlag } from "@/lib/hooks/use-flags"
+import { useDeleteFlag, useToggleFlag } from "@/lib/hooks/use-flags"
 import type { FeatureFlag } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Edit, Trash2, BarChart3, Settings } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, BarChart3, Settings, Archive } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,12 +35,17 @@ interface FlagTableProps {
 export function FlagTable({ flags }: FlagTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const deleteFlag = useDeleteFlag()
+  const toggleFlag = useToggleFlag()
 
   const handleDelete = async () => {
     if (deleteId) {
       await deleteFlag.mutateAsync(deleteId)
       setDeleteId(null)
     }
+  }
+
+  const handleToggle = (id: string) => {
+    toggleFlag.mutate(id)
   }
 
   const getTypeBadgeVariant = (type: string) => {
@@ -61,13 +67,11 @@ export function FlagTable({ flags }: FlagTableProps) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12">
-                <div className="flex h-2 w-2 items-center justify-center rounded-full" />
-              </TableHead>
+              <TableHead className="w-16">Status</TableHead>
               <TableHead>Flag Key</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Enabled</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
@@ -83,7 +87,11 @@ export function FlagTable({ flags }: FlagTableProps) {
               flags.map((flag) => (
                 <TableRow key={flag.id}>
                   <TableCell>
-                    <div className={`h-2 w-2 rounded-full ${flag.enabled ? "bg-chart-1" : "bg-muted-foreground"}`} />
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        flag.enabled ? "bg-green-500" : "bg-muted-foreground"
+                      }`}
+                    />
                   </TableCell>
                   <TableCell className="font-mono text-sm">{flag.key}</TableCell>
                   <TableCell className="font-medium">{flag.name}</TableCell>
@@ -91,12 +99,14 @@ export function FlagTable({ flags }: FlagTableProps) {
                     <Badge variant={getTypeBadgeVariant(flag.type)}>{flag.type}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={flag.enabled ? "default" : "secondary"}>
-                      {flag.enabled ? "Enabled" : "Disabled"}
-                    </Badge>
+                    <Switch
+                      checked={flag.enabled}
+                      onCheckedChange={() => handleToggle(flag.id)}
+                      disabled={toggleFlag.isPending}
+                    />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(flag.updated_at), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(flag.updatedAt), { addSuffix: true })}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -147,14 +157,18 @@ export function FlagTable({ flags }: FlagTableProps) {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Feature Flag</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the feature flag and all associated data.
+              This action cannot be undone. This will permanently delete the feature flag and all
+              associated data including variants and analytics.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,56 +1,70 @@
-import type { ApiKey } from "../types"
+import { apiClient } from "./client"
+import type { ApiKey, CreateApiKeyDto, CreateApiKeyResponse } from "../types"
 
-const MOCK_API_KEYS: ApiKey[] = [
-  {
-    id: "key-1",
-    name: "Production API Key",
-    key: "ffx_prod_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    last_used: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "key-2",
-    name: "Development API Key",
-    key: "ffx_dev_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
-    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    last_used: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "key-3",
-    name: "Testing API Key",
-    key: "ffx_test_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
-
-const isDemoMode = () => {
-  if (typeof window === "undefined") return false
-  return localStorage.getItem("demoMode") === "true"
-}
+// ============================================
+// API Keys API
+// ============================================
 
 export const apiKeysApi = {
+  /**
+   * Get all API keys for the current user
+   */
   async getApiKeys(): Promise<ApiKey[]> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    return [...MOCK_API_KEYS]
+    const response = await apiClient.get<ApiKey[]>("/api-keys")
+    return response.data
   },
 
-  async createApiKey(name: string): Promise<ApiKey> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const newKey: ApiKey = {
-      id: `key-${Math.random().toString(36).substr(2, 9)}`,
-      name,
-      key: `ffx_${name.toLowerCase().replace(/\s+/g, "_")}_${Math.random().toString(36).substr(2, 32)}`,
-      created_at: new Date().toISOString(),
-    }
-    MOCK_API_KEYS.push(newKey)
-    return { ...newKey }
+  /**
+   * Get a single API key by ID
+   */
+  async getApiKey(id: string): Promise<ApiKey> {
+    const response = await apiClient.get<ApiKey>(`/api-keys/${id}`)
+    return response.data
   },
 
+  /**
+   * Create a new API key
+   * Note: The secret key is only returned once during creation
+   */
+  async createApiKey(data: CreateApiKeyDto): Promise<CreateApiKeyResponse> {
+    const response = await apiClient.post<CreateApiKeyResponse>("/api-keys", data)
+    return response.data
+  },
+
+  /**
+   * Update API key name or permissions
+   */
+  async updateApiKey(
+    id: string,
+    data: Partial<Pick<CreateApiKeyDto, "name" | "permissions">>
+  ): Promise<ApiKey> {
+    const response = await apiClient.patch<ApiKey>(`/api-keys/${id}`, data)
+    return response.data
+  },
+
+  /**
+   * Revoke/Delete an API key
+   */
   async deleteApiKey(id: string): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_API_KEYS.findIndex((k) => k.id === id)
-    if (index !== -1) {
-      MOCK_API_KEYS.splice(index, 1)
-    }
+    await apiClient.delete(`/api-keys/${id}`)
+  },
+
+  /**
+   * Regenerate an API key (creates new secret, keeps same ID)
+   */
+  async regenerateApiKey(id: string): Promise<CreateApiKeyResponse> {
+    const response = await apiClient.post<CreateApiKeyResponse>(`/api-keys/${id}/regenerate`)
+    return response.data
+  },
+
+  /**
+   * Validate an API key
+   */
+  async validateApiKey(key: string): Promise<{ valid: boolean; apiKey?: ApiKey }> {
+    const response = await apiClient.post<{ valid: boolean; apiKey?: ApiKey }>(
+      "/api-keys/validate",
+      { key }
+    )
+    return response.data
   },
 }

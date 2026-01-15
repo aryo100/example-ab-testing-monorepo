@@ -1,5 +1,74 @@
-// Core Feature Flag Types
+// ============================================
+// API Response Types
+// ============================================
+
+export interface ApiResponse<T> {
+  data: T
+  message?: string
+  statusCode: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  meta: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
+export interface ApiError {
+  message: string
+  error?: string
+  statusCode: number
+  errors?: Record<string, string[]>
+}
+
+// ============================================
+// Auth Types
+// ============================================
+
+export interface User {
+  id: string
+  email: string
+  name?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface AuthTokens {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+}
+
+export interface AuthResponse {
+  user: User
+  tokens: AuthTokens
+}
+
+export interface LoginDto {
+  email: string
+  password: string
+}
+
+export interface RegisterDto {
+  email: string
+  password: string
+  name?: string
+}
+
+export interface RefreshTokenDto {
+  refreshToken: string
+}
+
+// ============================================
+// Feature Flag Types
+// ============================================
+
 export type FlagType = "boolean" | "percentage" | "variant"
+export type FlagStatus = "active" | "inactive" | "archived"
 
 export interface FeatureFlag {
   id: string
@@ -8,105 +77,200 @@ export interface FeatureFlag {
   description?: string
   type: FlagType
   enabled: boolean
-  created_by: string
-  created_at: string
-  updated_at: string
+  percentage?: number
+  status: FlagStatus
+  tags?: string[]
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface FlagVariant {
   id: string
-  flag_id: string
+  flagId: string
   key: string
-  weight: number
-}
-
-// Experiment Types
-export interface Experiment {
-  id: string
-  flag_id: string
-  name: string
-  description?: string
-  hypothesis?: string
-  start_date: string
-  end_date?: string
-  status: "draft" | "running" | "completed" | "paused"
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface ExposureEvent {
-  id: string
-  flag_id: string
-  experiment_id?: string
-  user_id: string
-  variant_key?: string
-  context?: Record<string, any>
-  timestamp: string
-}
-
-// Analytics Types
-export interface AnalyticsSummary {
-  flag_id: string
-  total_exposures: number
-  unique_users: number
-  variant_distribution: Record<string, number>
-  time_series: TimeSeriesData[]
-}
-
-export interface TimeSeriesData {
-  timestamp: string
-  exposures: number
-  unique_users: number
-}
-
-// API Key Types
-export interface ApiKey {
-  id: string
-  name: string
-  key_prefix: string
-  created_at: string
-  last_used?: string
-}
-
-// User/Auth Types
-export interface User {
-  id: string
-  email: string
   name?: string
-  created_at: string
+  description?: string
+  weight: number
+  payload?: Record<string, unknown>
+  createdAt: string
+  updatedAt?: string
 }
 
-export interface AuthResponse {
-  user: User
-  token: string
-}
-
-// Form DTOs
 export interface CreateFlagDto {
   key: string
   name: string
   description?: string
   type: FlagType
   enabled?: boolean
+  percentage?: number
+  tags?: string[]
 }
 
 export interface UpdateFlagDto {
   name?: string
   description?: string
   enabled?: boolean
-}
-
-export interface CreateExperimentDto {
-  flag_id: string
-  name: string
-  description?: string
-  hypothesis?: string
-  start_date: string
-  end_date?: string
+  percentage?: number
+  status?: FlagStatus
+  tags?: string[]
 }
 
 export interface CreateVariantDto {
   key: string
+  name?: string
+  description?: string
   weight: number
+  payload?: Record<string, unknown>
+}
+
+export interface UpdateVariantDto {
+  name?: string
+  description?: string
+  weight?: number
+  payload?: Record<string, unknown>
+}
+
+// ============================================
+// Experiment Types
+// ============================================
+
+export type ExperimentStatus = "draft" | "running" | "paused" | "completed"
+
+export interface Experiment {
+  id: string
+  flagId: string
+  name: string
+  description?: string
+  hypothesis?: string
+  startDate?: string
+  endDate?: string
+  status: ExperimentStatus
+  targetSampleSize?: number
+  currentSampleSize?: number
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
+  flag?: FeatureFlag
+}
+
+export interface CreateExperimentDto {
+  flagId: string
+  name: string
+  description?: string
+  hypothesis?: string
+  startDate?: string
+  endDate?: string
+  targetSampleSize?: number
+}
+
+export interface UpdateExperimentDto {
+  name?: string
+  description?: string
+  hypothesis?: string
+  startDate?: string
+  endDate?: string
+  targetSampleSize?: number
+}
+
+// ============================================
+// Analytics Types
+// ============================================
+
+export interface AnalyticsSummary {
+  flagId: string
+  totalImpressions: number
+  totalConversions: number
+  conversionRate: number
+  uniqueUsers: number
+  timeSeries: TimeSeriesData[]
+  variantDistribution: VariantDistribution[]
+}
+
+export interface TimeSeriesData {
+  date: string
+  impressions: number
+  conversions: number
+  uniqueUsers: number
+}
+
+export interface VariantDistribution {
+  variant: string
+  impressions: number
+  conversions: number
+  conversionRate: number
+  percentage: number
+}
+
+export interface AnalyticsQuery {
+  startDate?: string
+  endDate?: string
+  granularity?: "hour" | "day" | "week" | "month"
+}
+
+// ============================================
+// API Key Types
+// ============================================
+
+export type ApiKeyEnvironment = "production" | "staging" | "development"
+
+export interface ApiKey {
+  id: string
+  name: string
+  keyPrefix: string
+  environment: ApiKeyEnvironment
+  permissions: string[]
+  createdAt: string
+  lastUsedAt?: string
+  expiresAt?: string
+}
+
+export interface CreateApiKeyDto {
+  name: string
+  environment: ApiKeyEnvironment
+  permissions?: string[]
+  expiresAt?: string
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: ApiKey
+  secretKey: string // Only returned once on creation
+}
+
+// ============================================
+// Event Types (for SDK)
+// ============================================
+
+export interface ExposureEvent {
+  flagKey: string
+  variantKey?: string
+  userId: string
+  timestamp: string
+  context?: Record<string, unknown>
+}
+
+export interface ConversionEvent {
+  flagKey: string
+  eventName: string
+  userId: string
+  timestamp: string
+  value?: number
+  context?: Record<string, unknown>
+}
+
+// ============================================
+// Client SDK Types
+// ============================================
+
+export interface DecideRequest {
+  flagKey: string
+  userId: string
+  context?: Record<string, unknown>
+}
+
+export interface DecideResponse {
+  flagKey: string
+  enabled: boolean
+  variant?: string
+  payload?: Record<string, unknown>
 }

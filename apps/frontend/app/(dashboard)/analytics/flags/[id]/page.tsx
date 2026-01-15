@@ -8,9 +8,10 @@ import { AnalyticsChart } from "@/components/analytics/analytics-chart"
 import { VariantDistributionChart } from "@/components/analytics/variant-distribution-chart"
 import { MetricCard } from "@/components/analytics/metric-card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Users, Eye, TrendingUp } from "lucide-react"
+import { ArrowLeft, Users, Eye, TrendingUp, Percent } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type { AnalyticsQuery } from "@/lib/types"
 
 export default function FlagAnalyticsPage({ params }: { params: { id: string } }) {
   const { id } = params
@@ -18,28 +19,39 @@ export default function FlagAnalyticsPage({ params }: { params: { id: string } }
   const [dateRange, setDateRange] = useState("7d")
 
   // Calculate date range
-  const getDateRange = () => {
+  const getAnalyticsQuery = (): AnalyticsQuery => {
     const end = new Date()
     const start = new Date()
+    let granularity: AnalyticsQuery["granularity"] = "day"
+
     switch (dateRange) {
       case "24h":
         start.setDate(start.getDate() - 1)
+        granularity = "hour"
         break
       case "7d":
         start.setDate(start.getDate() - 7)
+        granularity = "day"
         break
       case "30d":
         start.setDate(start.getDate() - 30)
+        granularity = "day"
         break
       case "90d":
         start.setDate(start.getDate() - 90)
+        granularity = "week"
         break
     }
-    return { start: start.toISOString(), end: end.toISOString() }
+
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      granularity,
+    }
   }
 
-  const { start, end } = getDateRange()
-  const { data: analytics, isLoading } = useFlagAnalytics(id, start, end)
+  const query = getAnalyticsQuery()
+  const { data: analytics, isLoading } = useFlagAnalytics(id, query)
 
   return (
     <DashboardLayout>
@@ -71,38 +83,46 @@ export default function FlagAnalyticsPage({ params }: { params: { id: string } }
         </div>
 
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center text-muted-foreground">Loading analytics...</div>
+          <div className="flex h-64 items-center justify-center text-muted-foreground">
+            Loading analytics...
+          </div>
         ) : analytics ? (
           <>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <MetricCard
-                title="Total Exposures"
-                value={analytics.total_exposures.toLocaleString()}
+                title="Total Impressions"
+                value={analytics.totalImpressions.toLocaleString()}
                 description="Total number of flag evaluations"
                 icon={Eye}
               />
               <MetricCard
                 title="Unique Users"
-                value={analytics.unique_users.toLocaleString()}
-                description="Users who saw this flag"
+                value={analytics.uniqueUsers.toLocaleString()}
+                description="Unique users exposed"
                 icon={Users}
               />
               <MetricCard
-                title="Avg. Exposures/User"
-                value={(analytics.total_exposures / Math.max(analytics.unique_users, 1)).toFixed(2)}
-                description="Average exposures per user"
+                title="Total Conversions"
+                value={analytics.totalConversions.toLocaleString()}
+                description="Successful conversions"
                 icon={TrendingUp}
+              />
+              <MetricCard
+                title="Conversion Rate"
+                value={`${analytics.conversionRate.toFixed(2)}%`}
+                description="Overall conversion rate"
+                icon={Percent}
               />
             </div>
 
             <AnalyticsChart
-              data={analytics.time_series}
-              title="Exposure Timeline"
-              description="Track flag exposures and unique users over time"
+              data={analytics.timeSeries}
+              title="Performance Timeline"
+              description="Track impressions and conversions over time"
             />
 
-            {Object.keys(analytics.variant_distribution).length > 0 && (
-              <VariantDistributionChart distribution={analytics.variant_distribution} />
+            {analytics.variantDistribution.length > 0 && (
+              <VariantDistributionChart distribution={analytics.variantDistribution} />
             )}
           </>
         ) : (

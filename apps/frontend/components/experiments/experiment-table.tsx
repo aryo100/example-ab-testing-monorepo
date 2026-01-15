@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Edit, Trash2, Play, Pause, CheckCircle } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, Play, Pause, CheckCircle, BarChart2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +46,7 @@ export function ExperimentTable({ experiments }: ExperimentTableProps) {
     switch (status) {
       case "running":
         return (
-          <Badge className="bg-chart-1 text-primary-foreground">
+          <Badge className="bg-green-500 text-white">
             <Play className="mr-1 h-3 w-3" />
             Running
           </Badge>
@@ -95,13 +95,17 @@ export function ExperimentTable({ experiments }: ExperimentTableProps) {
               experiments.map((experiment) => (
                 <TableRow key={experiment.id}>
                   <TableCell className="font-medium">{experiment.name}</TableCell>
-                  <TableCell className="font-mono text-sm text-muted-foreground">{experiment.flag_id}</TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {experiment.flag?.key || experiment.flagId}
+                  </TableCell>
                   <TableCell>{getStatusBadge(experiment.status)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(experiment.start_date).toLocaleDateString()}
+                    {experiment.startDate
+                      ? new Date(experiment.startDate).toLocaleDateString()
+                      : "Not set"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(experiment.updated_at), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(experiment.updatedAt), { addSuffix: true })}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -115,6 +119,15 @@ export function ExperimentTable({ experiments }: ExperimentTableProps) {
                           <Link href={`/experiments/${experiment.id}`} className="flex items-center">
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/analytics/experiments/${experiment.id}`}
+                            className="flex items-center"
+                          >
+                            <BarChart2 className="mr-2 h-4 w-4" />
+                            Analytics
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -138,14 +151,18 @@ export function ExperimentTable({ experiments }: ExperimentTableProps) {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Experiment</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the experiment and all associated data.
+              This action cannot be undone. This will permanently delete the experiment and all
+              associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

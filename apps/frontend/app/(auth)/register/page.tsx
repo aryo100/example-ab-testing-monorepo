@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -11,11 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { authApi } from "@/lib/api/auth"
 import { useAuthStore } from "@/lib/store/auth-store"
-import { Flag } from "lucide-react"
+import { Flag, Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/api/client"
 
 export default function RegisterPage() {
   const router = useRouter()
-  const setAuth = useAuthStore((state) => state.setAuth)
+  const setUser = useAuthStore((state) => state.setUser)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,11 +40,11 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const response = await authApi.register(email, password, name)
-      setAuth(response.user, response.token)
+      const response = await authApi.register({ email, password, name: name || undefined })
+      setUser(response.user)
       router.push("/flags")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create account")
+    } catch (err) {
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -64,7 +64,7 @@ export default function RegisterPage() {
         <Card className="border-border">
           <CardHeader>
             <CardTitle>Sign up</CardTitle>
-            <CardDescription>Create a new FeatureFlag account</CardDescription>
+            <CardDescription>Create a new FlagRoll account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,6 +76,7 @@ export default function RegisterPage() {
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
                   className="bg-muted"
                 />
               </div>
@@ -89,6 +90,7 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading}
                   className="bg-muted"
                 />
               </div>
@@ -98,9 +100,11 @@ export default function RegisterPage() {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Min. 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                   className="bg-muted"
                 />
               </div>
@@ -113,18 +117,30 @@ export default function RegisterPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  disabled={loading}
                   className="bg-muted"
                 />
               </div>
 
-              {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+              {error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Creating account..." : "Create account"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Create account"
+                )}
               </Button>
             </form>
 
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               {"Already have an account? "}
               <Link href="/login" className="text-primary hover:underline">
                 Sign in
@@ -132,6 +148,17 @@ export default function RegisterPage() {
             </div>
           </CardContent>
         </Card>
+
+        <p className="text-center text-xs text-muted-foreground">
+          By creating an account, you agree to our{" "}
+          <Link href="/terms" className="underline hover:text-primary">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline hover:text-primary">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </div>
   )

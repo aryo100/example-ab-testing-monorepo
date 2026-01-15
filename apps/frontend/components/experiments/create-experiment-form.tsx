@@ -5,21 +5,23 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useCreateExperiment } from "@/lib/hooks/use-experiments"
-import { useFlags } from "@/lib/hooks/use-flags"
+import { useAllFlags } from "@/lib/hooks/use-flags"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
 const experimentSchema = z.object({
-  flag_id: z.string().min(1, "Flag is required"),
+  flagId: z.string().min(1, "Flag is required"),
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   hypothesis: z.string().optional(),
-  start_date: z.string().min(1, "Start date is required"),
-  end_date: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  targetSampleSize: z.number().optional(),
 })
 
 type ExperimentFormData = z.infer<typeof experimentSchema>
@@ -27,7 +29,7 @@ type ExperimentFormData = z.infer<typeof experimentSchema>
 export function CreateExperimentForm() {
   const router = useRouter()
   const createExperiment = useCreateExperiment()
-  const { data: flags = [] } = useFlags()
+  const { data: flags = [], isLoading: flagsLoading } = useAllFlags()
 
   const {
     register,
@@ -38,15 +40,23 @@ export function CreateExperimentForm() {
   } = useForm<ExperimentFormData>({
     resolver: zodResolver(experimentSchema),
     defaultValues: {
-      start_date: new Date().toISOString().split("T")[0],
+      startDate: new Date().toISOString().split("T")[0],
     },
   })
 
-  const selectedFlag = watch("flag_id")
+  const selectedFlag = watch("flagId")
 
   const onSubmit = async (data: ExperimentFormData) => {
     try {
-      const experiment = await createExperiment.mutateAsync(data)
+      const experiment = await createExperiment.mutateAsync({
+        flagId: data.flagId,
+        name: data.name,
+        description: data.description,
+        hypothesis: data.hypothesis,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        targetSampleSize: data.targetSampleSize,
+      })
       router.push(`/experiments/${experiment.id}`)
     } catch (error) {
       console.error("Failed to create experiment:", error)
@@ -62,12 +72,16 @@ export function CreateExperimentForm() {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="flag_id">
+            <Label htmlFor="flagId">
               Feature Flag <span className="text-destructive">*</span>
             </Label>
-            <Select value={selectedFlag} onValueChange={(value) => setValue("flag_id", value)}>
-              <SelectTrigger id="flag_id">
-                <SelectValue placeholder="Select a flag" />
+            <Select
+              value={selectedFlag}
+              onValueChange={(value) => setValue("flagId", value)}
+              disabled={flagsLoading}
+            >
+              <SelectTrigger id="flagId">
+                <SelectValue placeholder={flagsLoading ? "Loading flags..." : "Select a flag"} />
               </SelectTrigger>
               <SelectContent>
                 {flags.map((flag) => (
@@ -80,7 +94,7 @@ export function CreateExperimentForm() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.flag_id && <p className="text-sm text-destructive">{errors.flag_id.message}</p>}
+            {errors.flagId && <p className="text-sm text-destructive">{errors.flagId.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -109,28 +123,30 @@ export function CreateExperimentForm() {
               rows={2}
               {...register("hypothesis")}
             />
-            {errors.hypothesis && <p className="text-sm text-destructive">{errors.hypothesis.message}</p>}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="start_date">
-                Start Date <span className="text-destructive">*</span>
-              </Label>
-              <Input id="start_date" type="date" {...register("start_date")} />
-              {errors.start_date && <p className="text-sm text-destructive">{errors.start_date.message}</p>}
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input id="startDate" type="date" {...register("startDate")} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end_date">End Date</Label>
-              <Input id="end_date" type="date" {...register("end_date")} />
-              {errors.end_date && <p className="text-sm text-destructive">{errors.end_date.message}</p>}
+              <Label htmlFor="endDate">End Date</Label>
+              <Input id="endDate" type="date" {...register("endDate")} />
             </div>
           </div>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={createExperiment.isPending}>
-              {createExperiment.isPending ? "Creating..." : "Create Experiment"}
+              {createExperiment.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Experiment"
+              )}
             </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
