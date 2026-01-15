@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from "recharts"
 import type { TimeSeriesData } from "@/lib/types"
 
 interface AnalyticsChartProps {
@@ -12,9 +12,10 @@ interface AnalyticsChartProps {
 
 export function AnalyticsChart({ data, title, description }: AnalyticsChartProps) {
   const chartData = data.map((item) => ({
-    date: new Date(item.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    exposures: item.exposures,
-    users: item.unique_users,
+    date: new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    impressions: item.impressions,
+    conversions: item.conversions,
+    uniqueUsers: item.uniqueUsers,
   }))
 
   return (
@@ -24,11 +25,18 @@ export function AnalyticsChart({ data, title, description }: AnalyticsChartProps
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="date" className="text-xs text-muted-foreground" />
-            <YAxis className="text-xs text-muted-foreground" />
+            <XAxis
+              dataKey="date"
+              className="text-xs"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
+            <YAxis
+              className="text-xs"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "hsl(var(--card))",
@@ -37,8 +45,31 @@ export function AnalyticsChart({ data, title, description }: AnalyticsChartProps
               }}
               labelStyle={{ color: "hsl(var(--foreground))" }}
             />
-            <Line type="monotone" dataKey="exposures" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Exposures" />
-            <Line type="monotone" dataKey="users" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Unique Users" />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="impressions"
+              stroke="hsl(var(--chart-1))"
+              strokeWidth={2}
+              name="Impressions"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversions"
+              stroke="hsl(var(--chart-2))"
+              strokeWidth={2}
+              name="Conversions"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="uniqueUsers"
+              stroke="hsl(var(--chart-3))"
+              strokeWidth={2}
+              name="Unique Users"
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

@@ -4,9 +4,13 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { useUpdateExperiment, useStartExperiment } from "@/lib/hooks/use-experiments"
-import { experimentsApi } from "@/lib/api/experiments"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  useUpdateExperiment,
+  useStartExperiment,
+  usePauseExperiment,
+  useCompleteExperiment,
+  useResumeExperiment,
+} from "@/lib/hooks/use-experiments"
 import type { Experiment } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,14 +18,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Play, Pause, CheckCircle } from "lucide-react"
+import { Play, Pause, CheckCircle, Loader2 } from "lucide-react"
 
 const experimentUpdateSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   hypothesis: z.string().optional(),
-  start_date: z.string().min(1, "Start date is required"),
-  end_date: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
 })
 
 type ExperimentUpdateData = z.infer<typeof experimentUpdateSchema>
@@ -32,25 +36,11 @@ interface EditExperimentFormProps {
 
 export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
   const router = useRouter()
-  const queryClient = useQueryClient()
   const updateExperiment = useUpdateExperiment(experiment.id)
   const startExperiment = useStartExperiment()
-
-  const pauseExperiment = useMutation({
-    mutationFn: () => experimentsApi.pauseExperiment(experiment.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["experiments"] })
-      queryClient.invalidateQueries({ queryKey: ["experiments", experiment.id] })
-    },
-  })
-
-  const completeExperiment = useMutation({
-    mutationFn: () => experimentsApi.completeExperiment(experiment.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["experiments"] })
-      queryClient.invalidateQueries({ queryKey: ["experiments", experiment.id] })
-    },
-  })
+  const pauseExperiment = usePauseExperiment()
+  const resumeExperiment = useResumeExperiment()
+  const completeExperiment = useCompleteExperiment()
 
   const {
     register,
@@ -62,8 +52,8 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
       name: experiment.name,
       description: experiment.description || "",
       hypothesis: experiment.hypothesis || "",
-      start_date: experiment.start_date ? experiment.start_date.split("T")[0] : "",
-      end_date: experiment.end_date ? experiment.end_date.split("T")[0] : "",
+      startDate: experiment.startDate ? experiment.startDate.split("T")[0] : "",
+      endDate: experiment.endDate ? experiment.endDate.split("T")[0] : "",
     },
   })
 
@@ -81,18 +71,22 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
   }
 
   const handlePause = () => {
-    pauseExperiment.mutate()
+    pauseExperiment.mutate(experiment.id)
+  }
+
+  const handleResume = () => {
+    resumeExperiment.mutate(experiment.id)
   }
 
   const handleComplete = () => {
-    completeExperiment.mutate()
+    completeExperiment.mutate(experiment.id)
   }
 
   const getStatusBadge = () => {
     switch (experiment.status) {
       case "running":
         return (
-          <Badge className="bg-chart-1 text-primary-foreground">
+          <Badge className="bg-green-500 text-white">
             <Play className="mr-1 h-3 w-3" />
             Running
           </Badge>
@@ -116,6 +110,12 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
     }
   }
 
+  const isActionPending =
+    startExperiment.isPending ||
+    pauseExperiment.isPending ||
+    resumeExperiment.isPending ||
+    completeExperiment.isPending
+
   return (
     <div className="space-y-6">
       <Card>
@@ -132,7 +132,7 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
               <Label>Associated Flag</Label>
-              <Input value={experiment.flag_id} disabled className="font-mono bg-muted" />
+              <Input value={experiment.flagId} disabled className="font-mono bg-muted" />
               <p className="text-sm text-muted-foreground">Flag association cannot be changed</p>
             </div>
 
@@ -166,22 +166,26 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="start_date">
-                  Start Date <span className="text-destructive">*</span>
-                </Label>
-                <Input id="start_date" type="date" {...register("start_date")} />
-                {errors.start_date && <p className="text-sm text-destructive">{errors.start_date.message}</p>}
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input id="startDate" type="date" {...register("startDate")} />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="end_date">End Date</Label>
-                <Input id="end_date" type="date" {...register("end_date")} />
+                <Label htmlFor="endDate">End Date</Label>
+                <Input id="endDate" type="date" {...register("endDate")} />
               </div>
             </div>
 
             <div className="flex gap-3">
               <Button type="submit" disabled={updateExperiment.isPending}>
-                {updateExperiment.isPending ? "Saving..." : "Save Changes"}
+                {updateExperiment.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancel
@@ -199,20 +203,32 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
             {experiment.status === "draft" && (
-              <Button onClick={handleStart} disabled={startExperiment.isPending}>
-                <Play className="mr-2 h-4 w-4" />
+              <Button onClick={handleStart} disabled={isActionPending}>
+                {startExperiment.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="mr-2 h-4 w-4" />
+                )}
                 Start Experiment
               </Button>
             )}
 
             {experiment.status === "running" && (
               <>
-                <Button onClick={handlePause} variant="outline" disabled={pauseExperiment.isPending}>
-                  <Pause className="mr-2 h-4 w-4" />
+                <Button onClick={handlePause} variant="outline" disabled={isActionPending}>
+                  {pauseExperiment.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pause className="mr-2 h-4 w-4" />
+                  )}
                   Pause
                 </Button>
-                <Button onClick={handleComplete} disabled={completeExperiment.isPending}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                <Button onClick={handleComplete} disabled={isActionPending}>
+                  {completeExperiment.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
                   Complete
                 </Button>
               </>
@@ -220,12 +236,20 @@ export function EditExperimentForm({ experiment }: EditExperimentFormProps) {
 
             {experiment.status === "paused" && (
               <>
-                <Button onClick={handleStart} disabled={startExperiment.isPending}>
-                  <Play className="mr-2 h-4 w-4" />
+                <Button onClick={handleResume} disabled={isActionPending}>
+                  {resumeExperiment.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="mr-2 h-4 w-4" />
+                  )}
                   Resume
                 </Button>
-                <Button onClick={handleComplete} variant="outline" disabled={completeExperiment.isPending}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                <Button onClick={handleComplete} variant="outline" disabled={isActionPending}>
+                  {completeExperiment.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
                   Complete
                 </Button>
               </>

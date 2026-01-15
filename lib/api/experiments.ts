@@ -1,133 +1,120 @@
-import type { Experiment, CreateExperimentDto } from "../types"
+import { apiClient } from "./client"
+import type {
+  Experiment,
+  CreateExperimentDto,
+  UpdateExperimentDto,
+  PaginatedResponse,
+} from "../types"
 
-const MOCK_EXPERIMENTS: Experiment[] = [
-  {
-    id: "exp-1",
-    name: "Homepage Hero Test",
-    description: "Testing different hero section layouts for conversion",
-    flag_id: "3",
-    status: "running",
-    start_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "exp-2",
-    name: "Pricing Page Optimization",
-    description: "A/B test for pricing table layout",
-    flag_id: "2",
-    status: "draft",
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "exp-3",
-    name: "Checkout Flow Improvement",
-    description: "Testing simplified checkout vs multi-step",
-    flag_id: "3",
-    status: "completed",
-    start_date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "exp-4",
-    name: "Mobile Navigation Test",
-    description: "Testing hamburger menu vs bottom navigation",
-    flag_id: "1",
-    status: "paused",
-    start_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
+// ============================================
+// Query Parameters
+// ============================================
+
+export interface ExperimentsQueryParams {
+  page?: number
+  limit?: number
+  search?: string
+  status?: string
+  flagId?: string
+  sortBy?: string
+  sortOrder?: "asc" | "desc"
+}
+
+// ============================================
+// Experiments API
+// ============================================
 
 export const experimentsApi = {
-  async getExperiments(): Promise<Experiment[]> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    return [...MOCK_EXPERIMENTS]
+  /**
+   * Get all experiments with pagination
+   */
+  async getExperiments(params?: ExperimentsQueryParams): Promise<PaginatedResponse<Experiment>> {
+    const response = await apiClient.get<PaginatedResponse<Experiment>>("/experiments", {
+      params,
+    })
+    return response.data
   },
 
+  /**
+   * Get all experiments for a specific flag
+   */
+  async getExperimentsByFlag(flagId: string): Promise<Experiment[]> {
+    const response = await apiClient.get<Experiment[]>(`/experiments/flag/${flagId}`)
+    return response.data
+  },
+
+  /**
+   * Get a single experiment by ID
+   */
   async getExperiment(id: string): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    const experiment = MOCK_EXPERIMENTS.find((e) => e.id === id)
-    if (!experiment) throw new Error("Experiment not found")
-    return { ...experiment }
+    const response = await apiClient.get<Experiment>(`/experiments/${id}`)
+    return response.data
   },
 
+  /**
+   * Create a new experiment
+   */
   async createExperiment(data: CreateExperimentDto): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const newExperiment: Experiment = {
-      id: `exp-${Math.random().toString(36).substr(2, 9)}`,
-      ...data,
-      status: "draft",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    MOCK_EXPERIMENTS.push(newExperiment)
-    return { ...newExperiment }
+    const response = await apiClient.post<Experiment>("/experiments", data)
+    return response.data
   },
 
-  async updateExperiment(id: string, data: Partial<CreateExperimentDto>): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_EXPERIMENTS.findIndex((e) => e.id === id)
-    if (index === -1) throw new Error("Experiment not found")
-
-    MOCK_EXPERIMENTS[index] = {
-      ...MOCK_EXPERIMENTS[index],
-      ...data,
-      updated_at: new Date().toISOString(),
-    }
-    return { ...MOCK_EXPERIMENTS[index] }
+  /**
+   * Update an existing experiment
+   */
+  async updateExperiment(id: string, data: UpdateExperimentDto): Promise<Experiment> {
+    const response = await apiClient.patch<Experiment>(`/experiments/${id}`, data)
+    return response.data
   },
 
+  /**
+   * Delete an experiment
+   */
   async deleteExperiment(id: string): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_EXPERIMENTS.findIndex((e) => e.id === id)
-    if (index !== -1) {
-      MOCK_EXPERIMENTS.splice(index, 1)
-    }
+    await apiClient.delete(`/experiments/${id}`)
   },
 
+  // ============================================
+  // Experiment Lifecycle
+  // ============================================
+
+  /**
+   * Start an experiment (change status to running)
+   */
   async startExperiment(id: string): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_EXPERIMENTS.findIndex((e) => e.id === id)
-    if (index === -1) throw new Error("Experiment not found")
-
-    MOCK_EXPERIMENTS[index] = {
-      ...MOCK_EXPERIMENTS[index],
-      status: "running",
-      start_date: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    return { ...MOCK_EXPERIMENTS[index] }
+    const response = await apiClient.post<Experiment>(`/experiments/${id}/start`)
+    return response.data
   },
 
+  /**
+   * Pause a running experiment
+   */
   async pauseExperiment(id: string): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_EXPERIMENTS.findIndex((e) => e.id === id)
-    if (index === -1) throw new Error("Experiment not found")
-
-    MOCK_EXPERIMENTS[index] = {
-      ...MOCK_EXPERIMENTS[index],
-      status: "paused",
-      updated_at: new Date().toISOString(),
-    }
-    return { ...MOCK_EXPERIMENTS[index] }
+    const response = await apiClient.post<Experiment>(`/experiments/${id}/pause`)
+    return response.data
   },
 
-  async completeExperiment(id: string): Promise<Experiment> {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const index = MOCK_EXPERIMENTS.findIndex((e) => e.id === id)
-    if (index === -1) throw new Error("Experiment not found")
+  /**
+   * Resume a paused experiment
+   */
+  async resumeExperiment(id: string): Promise<Experiment> {
+    const response = await apiClient.post<Experiment>(`/experiments/${id}/resume`)
+    return response.data
+  },
 
-    MOCK_EXPERIMENTS[index] = {
-      ...MOCK_EXPERIMENTS[index],
-      status: "completed",
-      end_date: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    return { ...MOCK_EXPERIMENTS[index] }
+  /**
+   * Complete/Stop an experiment
+   */
+  async completeExperiment(id: string): Promise<Experiment> {
+    const response = await apiClient.post<Experiment>(`/experiments/${id}/complete`)
+    return response.data
+  },
+
+  /**
+   * Reset experiment (back to draft)
+   */
+  async resetExperiment(id: string): Promise<Experiment> {
+    const response = await apiClient.post<Experiment>(`/experiments/${id}/reset`)
+    return response.data
   },
 }
