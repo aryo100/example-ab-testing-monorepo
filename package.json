@@ -3,8 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r dev",
-    "build": "pnpm -r build"
+    "dev": "turbo run start:dev dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+
+    "prisma:migrate": "pnpm --filter nest-ab-testing prisma:migrate",
+    "prisma:generate": "pnpm --filter nest-ab-testing prisma:generate",
+    "prisma:studio": "pnpm --filter nest-ab-testing prisma:studio"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0"
   },
   "keywords": [],
   "author": "",
