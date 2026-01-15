@@ -1,0 +1,182 @@
+// Prisma Schema for A/B Testing Platform
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  USER
+  VIEWER
+}
+
+enum FlagType {
+  BOOLEAN
+  PERCENTAGE
+  VARIANT
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdFlags FeatureFlag[] @relation("FlagCreator")
+
+  @@map("users")
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  name        String
+  description String?
+  type        FlagType @default(BOOLEAN)
+  enabled     Boolean  @default(false)
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy   User          @relation("FlagCreator", fields: [createdById], references: [id])
+  variants    FlagVariant[]
+  targets     FlagTarget[]
+  experiments Experiment[]
+  exposures   Exposure[]
+  aggregates  Aggregate[]
+
+  @@map("feature_flags")
+}
+
+model FlagVariant {
+  id     String @id @default(uuid()) @db.Uuid
+  flagId String @map("flag_id") @db.Uuid
+  key    String
+  weight Int    @default(100)
+
+  // Relations
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([flagId, key])
+  @@map("flag_variants")
+}
+
+model Environment {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  targets FlagTarget[]
+
+  @@map("environments")
+}
+
+model FlagTarget {
+  id            String  @id @default(uuid()) @db.Uuid
+  flagId        String  @map("flag_id") @db.Uuid
+  environmentId String  @map("environment_id") @db.Uuid
+  percentage    Int     @default(100)
+  constraints   Json?   @db.JsonB
+
+  // Relations
+  flag        FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  environment Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([flagId, environmentId])
+  @@map("flag_targets")
+}
+
+model Experiment {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  flagId    String           @map("flag_id") @db.Uuid
+  metrics   Json?            @db.JsonB
+  status    ExperimentStatus @default(DRAFT)
+  startAt   DateTime?        @map("start_at")
+  endAt     DateTime?        @map("end_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  flag        FeatureFlag  @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  conversions Conversion[]
+
+  @@map("experiments")
+}
+
+model Exposure {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id")
+  flagId     String   @map("flag_id") @db.Uuid
+  variantKey String?  @map("variant_key")
+  timestamp  DateTime @default(now())
+  metadata   Json?    @db.JsonB
+
+  // Relations
+  flag        FeatureFlag  @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  conversions Conversion[]
+
+  @@index([flagId, timestamp])
+  @@index([userId])
+  @@map("exposures")
+}
+
+model Conversion {
+  id           String   @id @default(uuid()) @db.Uuid
+  exposureId   String?  @map("exposure_id") @db.Uuid
+  experimentId String   @map("experiment_id") @db.Uuid
+  metricKey    String   @map("metric_key")
+  value        Float    @default(1)
+  timestamp    DateTime @default(now())
+
+  // Relations
+  exposure   Exposure?  @relation(fields: [exposureId], references: [id], onDelete: SetNull)
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId, timestamp])
+  @@index([metricKey])
+  @@map("conversions")
+}
+
+model Aggregate {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @db.Date
+  flagId      String   @map("flag_id") @db.Uuid
+  variantKey  String?  @map("variant_key")
+  impressions Int      @default(0)
+  conversions Int      @default(0)
+
+  // Relations
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([date, flagId, variantKey])
+  @@index([flagId, date])
+  @@map("aggregates")
+}
+
+
